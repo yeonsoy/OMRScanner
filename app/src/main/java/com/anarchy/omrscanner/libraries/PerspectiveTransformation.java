@@ -12,6 +12,10 @@ import java.util.List;
 public class PerspectiveTransformation {
     private static final String DEBUG_TAG = "PerspectiveTransformation";
 
+    static {
+        System.loadLibrary("opencv_java3");
+    }
+
     public PerspectiveTransformation() {
     }
 

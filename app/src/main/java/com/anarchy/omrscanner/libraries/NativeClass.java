@@ -135,7 +135,7 @@ public class NativeClass{
 
     }
 
-    private boolean isRectangle(MatOfPoint2f polygon, int srcArea) {
+    public boolean isRectangle(MatOfPoint2f polygon, int srcArea) {
         MatOfPoint polygonInt = MathUtils.toMatOfPointInt(polygon);
 
         if (polygon.rows() != 4) {

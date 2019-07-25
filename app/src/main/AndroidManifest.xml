@@ -26,6 +26,7 @@
         <activity android:name=".ImageCropActivity" android:screenOrientation="portrait"/>
         <activity android:name=".ImageEnhanceActivity" android:screenOrientation="portrait"/>
         <activity android:name=".CameraActivity" android:screenOrientation="landscape"/>
+        <activity android:name=".Find4PointsActivity" android:screenOrientation="portrait"/>
     </application>
 
 </manifest>
