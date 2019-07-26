@@ -360,8 +360,29 @@ public class CameraActivity extends AppCompatActivity implements CvCameraViewLis
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
         Mat drawing = mRgba.clone();
+        /*
+        Mat img_lab = new Mat();
+        Imgproc.cvtColor(drawing, img_lab, Imgproc.COLOR_BGR2Lab);
+
+        // Extract the L channel
+        List<Mat> lab_planes = new ArrayList<>(3);
+        Core.split(img_lab, lab_planes);  // now we have the L image in lab_planes[0]
+
+        // apply the CLAHE algorithm to the L channel
+        CLAHE clahe = Imgproc.createCLAHE();
+        clahe.setClipLimit(4);
+        Mat dst = new Mat();
+        clahe.apply(lab_planes.get(0), dst);
+
+        // Merge the the color planes back into an Lab image
+        dst.copyTo(lab_planes.get(0));
+        Core.merge(lab_planes, img_lab);
+
+        Imgproc.cvtColor(img_lab, drawing, Imgproc.COLOR_Lab2BGR);
+
+        img_lab.release();
+*/
         getOMRRect(drawing);
-        //drawing.release();
 
         return drawing;
     }
@@ -369,20 +390,14 @@ public class CameraActivity extends AppCompatActivity implements CvCameraViewLis
     public void getOMRRect(Mat img) {
         Mat img_gray = new Mat();
         Mat img_edges = new Mat();
+        double omrSize = img.cols() * img.rows();
 
-        Imgproc.cvtColor(img, img_gray, Imgproc.COLOR_BGR2GRAY);
-        Imgproc.Canny(img_gray, img_edges, 80, 100);
+        Imgproc.cvtColor(img, img_gray, Imgproc.COLOR_RGB2GRAY);
+        Imgproc.equalizeHist(img_gray, img_gray);
+        Imgproc.Canny(img_gray, img_edges, 50, 150, 3, false);
         Mat element = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(2 + 1, 2 + 1), new Point(1, 1));
         Imgproc.dilate(img_edges, img_edges, element);
-        // Imgproc.erode(img_edges, img_edges, element);
 
-        //Imgproc.cvtColor(img, img_gray, Imgproc.COLOR_BGR2Lab);
-        //Core.inRange(img_gray, new Scalar(150, 100, 100), new Scalar(10000, 160, 160), img_gray);
-        //Imgproc.Canny(img_gray, img_edges, 80, 100);
-        //Mat element = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(2 + 1, 2 + 1), new Point(1, 1));
-        //Imgproc.dilate(img_edges, img_edges, element);
-
-        // mRgba = img_gray.clone();
         //Shape detection
         List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
         Mat hierarchy = new Mat();
@@ -402,10 +417,11 @@ public class CameraActivity extends AppCompatActivity implements CvCameraViewLis
 
             MatOfPoint temp = new MatOfPoint();
             temp.fromArray(arrPoints);
-
+            
             //Filter outliers
-            if (Imgproc.contourArea(temp) > 210000 && Imgproc.contourArea(temp) < 300000)
+            if (Imgproc.contourArea(temp) > omrSize / 2 && Imgproc.contourArea(temp) < (omrSize * 4) / 5) {
                 hulls.add(temp);
+            }
         }
 
         List<MatOfPoint2f> hull2f = new ArrayList<MatOfPoint2f>();
@@ -425,7 +441,6 @@ public class CameraActivity extends AppCompatActivity implements CvCameraViewLis
                 double area = Imgproc.contourArea(approx);
                 Log.d(TAG, "getPoint: " + area);
                 drawShape(img, nowRectPoints, new Scalar(0, 255, 0), 4);
-                test(img);
 
             } else
                 continue;
@@ -438,57 +453,6 @@ public class CameraActivity extends AppCompatActivity implements CvCameraViewLis
         contours.clear();
         hulls.clear();
         hull2f.clear();
-    }
-
-    public void test(Mat img) {
-        Mat align = img;
-        MatOfPoint2f srcQuad = new MatOfPoint2f(nowRectPoints.get(2), nowRectPoints.get(3), nowRectPoints.get(0), nowRectPoints.get(1));
-        MatOfPoint2f dstQuad = new MatOfPoint2f(new Point(0, 0), new Point(1000, 0), new Point(1000, 773), new Point(0, 773));
-
-        Mat M = Imgproc.getPerspectiveTransform(srcQuad, dstQuad);
-        Imgproc.warpPerspective(mRgba, align, M, new Size(1000, 773));
-
-        int diffX = 60;
-        int diffY = 60;
-
-        Rect lt = new Rect(new Point(0, 0), new Point(diffX, diffY));
-        Rect rt = new Rect(new Point(align.width() - 1 - diffX, 0), new Point(align.width() - 1, diffY));
-        Rect lb = new Rect(new Point(0, align.height() - 1 - diffY), new Point(diffX, align.height() - 1));
-        Rect rb = new Rect(new Point(align.width() - 1 - diffX, align.height() - 1 - diffY), new Point(align.width() - 1, align.height() - 1));
-
-        Mat ltMat = new Mat(align, lt);
-        Mat rtMat = new Mat(align, rt);
-        Mat lbMat = new Mat(align, lb);
-        Mat rbMat = new Mat(align, rb);
-
-        //// left-top
-        //Imgproc.rectangle(align, lt.tl(), lt.br(), new Scalar(0, 255, 0, 255), 1);
-        //// right-top
-        //Imgproc.rectangle(align, rt.tl(), rt.br(), new Scalar(0, 255, 0, 255), 1);
-        //// left-bottom
-        //Imgproc.rectangle(align, lb.tl(), lb.br(), new Scalar(0, 255, 0, 255), 1);
-        //// right-bottom
-        //Imgproc.rectangle(align, rb.tl(), rb.br(), new Scalar(0, 255, 0, 255), 1);
-
-        Point ltPoint = getPoint(ltMat, lt.tl());
-        Point rtPoint = getPoint(rtMat, rt.tl());
-        Point lbPoint = getPoint(lbMat, lb.tl());
-        Point rbPoint = getPoint(rbMat, rb.tl());
-
-        if (ltPoint != null)
-            Imgproc.circle(align, ltPoint, 5, new Scalar(255, 0, 0), -1);
-        if (rtPoint != null)
-            Imgproc.circle(align, rtPoint, 5, new Scalar(255, 0, 0), -1);
-        if (lbPoint != null)
-            Imgproc.circle(align, lbPoint, 5, new Scalar(255, 0, 0), -1);
-        if (rbPoint != null)
-            Imgproc.circle(align, rbPoint, 5, new Scalar(255, 0, 0), -1);
-
-       // align.release();
-        ltMat.release();
-        rtMat.release();
-        lbMat.release();
-        rbMat.release();
     }
 
     public void drawShape(Mat img, Point tl, List<Point> shape, Scalar color, int thickness) {
